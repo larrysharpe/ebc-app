@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Choir" ADD COLUMN IF NOT EXISTS "members" JSONB NOT NULL DEFAULT '[]';

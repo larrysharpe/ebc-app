@@ -1,0 +1,61 @@
+{
+  "name": "ebc-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/ensure-prisma.mjs && next dev -H 0.0.0.0",
+    "dev:fresh": "node scripts/ensure-prisma.mjs --force && rm -rf .next && next dev -H 0.0.0.0",
+    "build": "node scripts/ensure-prisma.mjs --force && next build",
+    "start": "next start -H 0.0.0.0",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "postinstall": "prisma generate",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:sync": "node scripts/ensure-prisma.mjs --force",
+    "db:seed": "prisma db seed",
+    "db:seed:calendar": "tsx scripts/seed-church-events-from-wordpress.ts",
+    "db:setup": "npm run db:up && prisma migrate dev && npm run db:seed",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@cursor/sdk": "^1.0.23",
+    "@prisma/client": "^6.9.0",
+    "@tiptap/extension-link": "^3.29.0",
+    "@tiptap/extension-placeholder": "^3.29.0",
+    "@tiptap/pm": "^3.29.0",
+    "@tiptap/react": "^3.29.0",
+    "@tiptap/starter-kit": "^3.29.0",
+    "bcryptjs": "^3.0.3",
+    "isomorphic-dompurify": "^3.19.0",
+    "jose": "^6.2.3",
+    "next": "^15.3.3",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "server-only": "^0.0.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.15.21",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.5",
+    "eslint": "^9.28.0",
+    "eslint-config-next": "^15.3.3",
+    "postcss": "^8.5.4",
+    "prisma": "^6.9.0",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.7"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}

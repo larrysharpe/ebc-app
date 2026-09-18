@@ -1,0 +1,101 @@
+@import url('https://fonts.cdnfonts.com/css/blacksword');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ebc-burgundy: #891619;
+  --ebc-burgundy-dark: #781d24;
+  --ebc-gold: #ebbf5f;
+  --ebc-gold-bright: #feb01c;
+  --ebc-green: #527e4c;
+  --ebc-green-dark: #376052;
+  --ebc-navy: #003e60;
+  --ebc-white: #ffffff;
+  --ebc-black: #000000;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply overflow-x-hidden bg-slate-50 text-slate-900 antialiased;
+  }
+}
+
+@layer utilities {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+}
+
+@layer components {
+  .ebc-card {
+    @apply rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5;
+  }
+
+  .ebc-section-label {
+    @apply text-xs font-bold uppercase tracking-wider text-ebc-gold-bright;
+  }
+
+  /** Mobile-first primary CTA — full width on phone, auto on larger screens. */
+  .ebc-action-primary {
+    @apply inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-ebc-burgundy px-5 py-3 text-base font-semibold text-white hover:bg-ebc-burgundy-dark disabled:opacity-50 sm:w-auto;
+  }
+
+  .ebc-action-secondary {
+    @apply inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-ebc-burgundy/30 bg-white px-5 py-3 text-base font-semibold text-ebc-burgundy hover:border-ebc-burgundy/50 disabled:opacity-50 sm:w-auto;
+  }
+
+  .ebc-action-quiet {
+    @apply inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-base font-medium text-slate-700 hover:border-ebc-burgundy/40 disabled:opacity-50 sm:w-auto;
+  }
+
+  /** Large tappable choice row (RSVP, yes/no decisions). */
+  .ebc-choice {
+    @apply flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-base;
+  }
+
+  .ebc-choice-selected {
+    @apply border-ebc-burgundy bg-ebc-burgundy/5 text-ebc-burgundy;
+  }
+
+  .ebc-choice-idle {
+    @apply border-slate-200 text-slate-800 hover:border-ebc-burgundy/40;
+  }
+
+  .ebc-rich-text-editor.ProseMirror p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+    color: rgb(148 163 184);
+  }
+}
+
+@keyframes welcome-zion-pulse {
+  0%,
+  100% {
+    text-shadow: 0 0 0 rgba(235, 191, 95, 0);
+  }
+  50% {
+    text-shadow: 0 0 28px rgba(235, 191, 95, 0.45);
+  }
+}
+
+.welcome-zion-pulse {
+  animation: welcome-zion-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-zion-pulse {
+    animation: none;
+  }
+}

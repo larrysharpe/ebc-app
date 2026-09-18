@@ -1,0 +1,1 @@
+export { SopSettingsEditor } from './SopSettingsEditor';

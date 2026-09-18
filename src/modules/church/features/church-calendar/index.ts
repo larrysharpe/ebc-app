@@ -1,0 +1,1 @@
+export { ChurchCalendarPanel } from './ChurchCalendarPanel';

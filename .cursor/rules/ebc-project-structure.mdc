@@ -1,0 +1,48 @@
+---
+description: Feature folders, colocation, and barrel import rules
+globs: src/**
+alwaysApply: false
+---
+
+# EBC APP — Project Structure
+
+Full doc: `docs/engineering/standards/project-structure.md`
+
+## Feature folder (required shape)
+
+```
+features/<feature-name>/
+├── <FeatureName>.tsx
+├── <feature-name>.types.ts
+├── <feature-name>.constants.ts
+├── <feature-name>.utils.ts        # if needed
+├── use-<feature-name>.ts          # if needed
+├── <FeatureName>.styles.ts        # or .module.css
+├── components/<SubComponent>/     # sub-barrels for complex pieces
+│   ├── <SubComponent>.tsx
+│   ├── <SubComponent>.types.ts
+│   └── index.ts
+├── <FeatureName>.test.tsx
+└── index.ts                       # feature barrel
+```
+
+## Barrel rules
+
+```typescript
+// ✅ import from module barrel
+import { MemberDirectory } from '@/modules/members';
+
+// ✅ import sibling subcomponent via its barrel
+import { MemberRow } from './components/MemberRow';
+
+// ❌ never cross modules via deep path
+import { X } from '@/modules/members/features/member-directory/MemberDirectory';
+```
+
+- Each feature + shared UI folder has `index.ts` exporting **public API only**
+- Do not export repositories from module barrels
+- Prefer named exports; avoid `export *` except module root re-exports
+
+## Routes stay thin
+
+`src/app/**/page.tsx` only imports from feature/module barrels and passes params.

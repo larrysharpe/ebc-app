@@ -1,0 +1,539 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Ministry {
+  id             String               @id
+  slug           String               @unique
+  name           String
+  category       String
+  description    String               @db.Text
+  websiteUrl     String?
+  meetingSummary String?              @db.Text
+  /** Public / shared inbox for the ministry (not a person's personal email). */
+  contactEmail   String?
+  personnel      Json                 @default("[]")
+  events         Json                 @default("[]")
+  sops           Json                 @default("[]")
+  /** Per-ministry duty definitions for roster assignment. */
+  dutyCatalog    Json                 @default("[]")
+  /** Cached AI suggested 4-week plan (markdown). Refreshed by cron or manual Refresh. */
+  suggestedPlan            String?   @db.Text
+  suggestedPlanGeneratedAt DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  mediaAssets    MinistryMediaAsset[]
+  churchEvents   ChurchEvent[]
+}
+
+/**
+ * Staff source-of-truth church calendar event (not synced from the public website).
+ * Null ministryId = church-wide; set ministryId to attach to a ministry calendar.
+ */
+model ChurchEvent {
+  id         String             @id
+  title      String             @default("")
+  /** ISO date YYYY-MM-DD; null = planning draft (date TBD). */
+  eventDate  String?
+  startTime  String?
+  endTime    String?
+  location   String?
+  /** Church campus space id when booked on-site; null for offsite/other. */
+  spaceId    String?
+  notes      String?            @db.Text
+  /** Human-readable recurrence label (e.g. "1st & 3rd Fridays"). */
+  recurring  String?
+  /** Structured pattern: none | weekly | biweekly | monthly_nth_weekday | first_and_third | second_and_fourth */
+  recurrencePattern String?
+  /** Shared id for all occurrences created from one recurring save. */
+  seriesId   String?
+  /** worship | education | meeting | outreach | special | other */
+  eventType  String             @default("other")
+  /** draft | pending_approval | scheduled | cancelled */
+  status     String             @default("scheduled")
+  /** Digitized Activity Request form payload (contacts, media, coordination, …). */
+  activityRequest Json?
+  ministryId String?
+  ministry   Ministry?          @relation(fields: [ministryId], references: [id], onDelete: SetNull)
+  musicPlans ServiceMusicPlan[]
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@index([eventDate])
+  @@index([ministryId])
+  @@index([status])
+  @@index([seriesId])
+  @@index([spaceId, eventDate])
+}
+
+/** Church directory person — ministry rosters link here via personId. */
+model Person {
+  id               String   @id
+  firstName        String
+  lastName         String
+  /** Generational / name suffix: Jr., III, IV, etc. */
+  suffix           String?
+  email            String?
+  phone            String?
+  /** ISO date YYYY-MM-DD — helpful for minors; optional. */
+  dateOfBirth      String?
+  /** Explicit minor flag — kids stay Person records, usually without app logins. */
+  isMinor          Boolean  @default(false)
+  membershipStatus String   @default("member")
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  householdMembership PersonHousehold?
+
+  @@index([lastName, firstName])
+  @@index([membershipStatus])
+  @@index([email])
+  @@index([isMinor])
+}
+
+/** Family unit — links spouses, children, and other household members. */
+model Household {
+  id           String   @id
+  name         String
+  primaryPhone String?
+  primaryEmail String?
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  members PersonHousehold[]
+}
+
+/** Join: one person belongs to at most one household (MVP). */
+model PersonHousehold {
+  id          String   @id
+  householdId String
+  personId    String   @unique
+  /** head | spouse | child | other */
+  role        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  person    Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, personId])
+  @@index([householdId])
+  @@index([role])
+}
+
+/** Per-ministry media library files. Bytes live in object storage (local now, S3 later). */
+model MinistryMediaAsset {
+  id              String   @id
+  ministryId      String
+  fileName        String
+  displayName     String?
+  mimeType        String
+  sizeBytes       Int
+  storageKey      String
+  storageProvider String   @default("local")
+  kind            String
+  /** Which library tab owns this file: media | documents */
+  library         String   @default("media")
+  /** Virtual folder path, e.g. "2026/CLC Retreat" — not a real filesystem folder. */
+  folderPath      String   @default("")
+  notes           String?  @db.Text
+  uploadedBy      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  ministry        Ministry @relation(fields: [ministryId], references: [id], onDelete: Cascade)
+
+  @@index([ministryId])
+  @@index([ministryId, kind])
+  @@index([ministryId, library])
+  @@index([ministryId, folderPath])
+}
+
+model SopConfig {
+  id               String   @id @default("default")
+  sections         Json
+  templates        Json
+  categoryDefaults Json
+  minQualityScore  Int      @default(70)
+  updatedAt        DateTime @updatedAt
+}
+
+model Song {
+  id             String   @id
+  title          String
+  artist         String?
+  youtubeUrl     String?
+  /** Practice / reference audio or YouTube Music link for choir members. */
+  audioUrl       String?
+  defaultKey     String?
+  themes         String[] @default([])
+  notes          String?  @db.Text
+  lyricsText     String?  @db.Text
+  copyrightNotes String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+/** Choir member requests to add a song to the catalog / repertoire. */
+model SongRequest {
+  id              String   @id @default(cuid())
+  title           String
+  artist          String?
+  youtubeUrl      String?
+  audioUrl        String?
+  defaultKey      String?
+  themes          String[] @default([])
+  notes           String?  @db.Text
+  reason          String?  @db.Text
+  status          String   @default("pending")
+  requestedById   String?
+  requestedByName String?
+  songId          String?
+  reviewNotes     String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ServiceMusicPlan {
+  id                 String         @id
+  title              String
+  choirGroup         String
+  serviceDate        String
+  /** Optional link to a church calendar event. */
+  churchEventId      String?
+  /** Optional link to a church Sunday service defined by admin (legacy). */
+  sundayServiceId    String?
+  sundayOfMonth      Int?
+  scheduleOverride   Boolean        @default(false)
+  scheduleNote       String?        @db.Text
+  serviceStartTime   String?
+  serviceEndTime     String?
+  /** Choir arrival / call time before the service. */
+  arrivalTime        String?
+  practiceDate       String?
+  practiceStartTime  String?
+  practiceEndTime    String?
+  practiceLocation   String?
+  /** Multiple rehearsals: [{ id, date, startTime?, endTime?, location? }]. */
+  practices          Json            @default("[]")
+  occasion           String?        @db.Text
+  attire             String?
+  scriptureReader    String?
+  prayerLeader       String?
+  directorNotes      String?        @db.Text
+  postServiceMessage String?        @db.Text
+  status             String
+  sentAt             DateTime?
+  directorName       String
+  songs              Json           @default("[]")
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  churchEvent        ChurchEvent?   @relation(fields: [churchEventId], references: [id], onDelete: SetNull)
+  sundayService      SundayService? @relation(fields: [sundayServiceId], references: [id], onDelete: SetNull)
+  attendance         PlanAttendance[]
+  comments           PlanComment[]
+
+  @@index([churchEventId])
+  @@index([sundayServiceId])
+}
+
+/** Recipient RSVP for a sent choir plan (one response per user). */
+model PlanAttendance {
+  id        String   @id
+  planId    String
+  userId    String
+  personId  String?
+  /** attending | not_attending | maybe */
+  status    String
+  note      String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  plan      ServiceMusicPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, userId])
+  @@index([planId])
+  @@index([userId])
+}
+
+/** Thread comments on a sent choir plan. */
+model PlanComment {
+  id         String   @id
+  planId     String
+  userId     String
+  personId   String?
+  authorName String
+  body       String   @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  plan       ServiceMusicPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId, createdAt])
+  @@index([userId])
+}
+
+/**
+ * Church-wide Sunday worship service (admin-defined).
+ * Choir directors pick these when planning music and see special characteristics.
+ */
+model SundayService {
+  id              String             @id
+  serviceDate     String
+  title           String
+  /** Tags such as children, mens_day, youth — see SERVICE_CHARACTERISTIC_LABELS. */
+  characteristics String[]           @default([])
+  /** Free-text guidance for directors and leaders. */
+  notes           String?            @db.Text
+  startTime       String?
+  endTime         String?
+  status          String             @default("scheduled")
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  musicPlans      ServiceMusicPlan[]
+
+  @@index([serviceDate])
+  @@index([status])
+}
+
+/**
+ * Chapel choir definition (CRUD in Choir setup).
+ * Plans and schedule swaps store choir id in their choirGroup fields.
+ */
+model Choir {
+  id             String   @id
+  name           String
+  /** ChoirLeader[] — { personId, title? } */
+  leaders        Json     @default("[]")
+  /** ChoirMember[] — { personId } roster for this choir */
+  members        Json     @default("[]")
+  defaultSunday  Int?
+  sortOrder      Int      @default(0)
+  active         Boolean  @default(true)
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([active, sortOrder])
+}
+
+model ChoirScheduleOverride {
+  id            String  @id
+  serviceDate   String
+  choirGroup    String
+  sundayOfMonth Int
+  note          String? @db.Text
+}
+
+model BandMusician {
+  id                    String   @id
+  name                  String
+  /** Link to Person directory when known (members or hired). */
+  personId              String?
+  /** Primary instrument for depth-chart grouping. */
+  instrument            String
+  /** Additional instruments this musician can cover. */
+  secondaryInstruments  String[] @default([])
+  playerType            String   @default("regular")
+  guestServiceDate      String?
+  sundays               Int[]    @default([])
+  everyOther2nd         Boolean  @default(false)
+  /** Depth-chart tier: primary, backup, emergency, etc. */
+  role                  String
+  /** Sort order within the same instrument + tier (lower = higher on chart). */
+  depthOrder            Int      @default(0)
+  namePending           Boolean  @default(false)
+  notes                 String?  @db.Text
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([personId])
+  @@index([instrument, role, depthOrder])
+}
+
+model Visitor {
+  id            String   @id @default(cuid())
+  firstName     String
+  lastName      String
+  email         String?
+  phone         String?
+  visitDate     String
+  howHeard      String?
+  followUpNotes String?  @db.Text
+  status        String   @default("new")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  roles        String[]
+  ministryIds  String[] @default([])
+  /** Choir ids this choir_director may plan for (like ministryIds for ministry_leader). */
+  choirIds     String[] @default([])
+  status       String   @default("active")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+/**
+ * Bookable / selectable room or area on the church campus.
+ * Catalog is seeded from facilities constants; managers can edit notes/capacity/active.
+ */
+model ChurchSpace {
+  id        String   @id
+  /** first | second | third */
+  floor     String
+  name      String
+  sortOrder Int      @default(0)
+  capacity  Int?
+  notes     String?  @db.Text
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([floor, sortOrder])
+  @@index([active])
+}
+
+/**
+ * Per-user UI preferences (event voice coach, etc.).
+ * voiceCoachPreference: ask | on | off
+ */
+model UserUiPreference {
+  userId               String   @id
+  voiceCoachPreference String   @default("ask")
+  updatedAt            DateTime @updatedAt
+}
+
+/** Per-user master switches for outbound channels. */
+model NotificationChannelPreference {
+  userId       String   @id
+  emailEnabled Boolean  @default(true)
+  pushEnabled  Boolean  @default(true)
+  smsEnabled   Boolean  @default(false)
+  updatedAt    DateTime @updatedAt
+}
+
+/**
+ * Granular topic preferences. ministryId "" = all ministries for that topic;
+ * a specific ministry id scopes the toggle (ministry leaders).
+ */
+model NotificationTopicPreference {
+  id           String   @id @default(cuid())
+  userId       String
+  topic        String
+  ministryId   String   @default("")
+  emailEnabled Boolean  @default(true)
+  pushEnabled  Boolean  @default(true)
+  smsEnabled   Boolean  @default(false)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, topic, ministryId])
+  @@index([userId])
+}
+
+/** Delivery outbox — queues email/push/SMS until providers are configured. */
+model NotificationOutbox {
+  id         String    @id @default(cuid())
+  userId     String
+  topic      String
+  channel    String
+  title      String
+  body       String    @db.Text
+  href       String?
+  payload    Json?
+  status     String    @default("pending")
+  skipReason String?
+  error      String?
+  createdAt  DateTime  @default(now())
+  sentAt     DateTime?
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+/** Future web-push / device tokens. Unused until VAPID keys are set. */
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, endpoint])
+  @@index([userId])
+}
+
+/** Singleton church-wide suggested plan rolled up from ministry plans. */
+model ChurchPlan {
+  id                       String    @id @default("default")
+  suggestedPlan            String?   @db.Text
+  suggestedPlanGeneratedAt DateTime?
+  updatedAt                DateTime  @updatedAt
+}
+
+/** Choir director defaults for new service plans (singleton). */
+model ChoirDirectorSettings {
+  id                 String   @id @default("default")
+  /** Preferred choir when the service date has no chapel rotation match. */
+  defaultChoirGroup  String   @default("senior")
+  serviceStartTime   String   @default("11:00")
+  serviceEndTime     String   @default("13:00")
+  /** Weekday for practice before the service (0=Sun … 6=Sat). Legacy mirror of first defaultPractices row. */
+  practiceWeekday    Int      @default(6)
+  practiceStartTime  String   @default("09:00")
+  practiceEndTime    String   @default("11:00")
+  /**
+   * Default rehearsals for new plans:
+   * [{ id, weekday, weeksBefore, startTime, endTime, location? }]
+   * weeksBefore=1 → first matching weekday before the service (e.g. Saturday before);
+   * weeksBefore=2 → two Saturdays before, etc.
+   */
+  defaultPractices   Json     @default("[]")
+  /** Ordered PlanSongSlotType values for “Add default service slots”. */
+  defaultServiceSlots Json     @default("[\"welcome\",\"worship\",\"congregational_hymn\",\"offering\",\"sermonic\",\"response\",\"last_song\"]")
+  /** Sunday-of-month → ChoirGroup map; null uses code defaults. */
+  defaultRotationBySunday Json?
+  /** ChoirGroup → leader list; null uses code defaults. */
+  leadersByGroup     Json?
+  updatedAt          DateTime @updatedAt
+}
+
+/**
+ * Replaces paper musician signup: capture who played, contact, and that
+ * payment paperwork was completed. Never store payment amounts here.
+ */
+model MusicianIntake {
+  id                       String   @id @default(cuid())
+  name                     String
+  email                    String?
+  phone                    String?
+  instrument               String
+  serviceDate              String
+  playerType               String   @default("guest")
+  paymentPaperworkComplete Boolean  @default(false)
+  /** Ops note only (e.g. “forms to finance”) — no dollar amounts. */
+  paymentNotes             String?  @db.Text
+  status                   String   @default("pending")
+  bandMusicianId           String?
+  createdByUserId          String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([serviceDate])
+  @@index([status])
+}

@@ -1,0 +1,26 @@
+---
+description: Mandatory EBC APP engineering review before any code change
+alwaysApply: true
+---
+
+# EBC APP — Engineering Review
+
+Before writing or modifying code, read and apply `docs/engineering/standards/coding.md`, `docs/engineering/standards/project-structure.md`, and `docs/engineering/standards/ux.md`.
+
+## Required on every code change
+
+1. **Feature-based layout** — Colocate component, types, constants, styles, hooks, utils, tests in `src/modules/<domain>/features/<feature>/`.
+2. **Barrel imports** — Export via `index.ts`; import from `@/modules/<name>` or feature barrel — never deep cross-module paths.
+3. **Layer boundaries** — Routes compose features; components → services → repositories. No DB/Prisma in UI.
+4. **Auth in services** — Permission checks server-side on every mutation, not UI-only.
+5. **Sensitive data** — No PII, giving amounts, or secrets in logs, analytics, or error trackers.
+6. **Realm** — Giving stays in Realm; do not store contributions in EBC APP.
+7. **Validation** — Zod on external inputs; explicit return types on exports.
+8. **UI states** — Loading, empty, error handled for async views.
+9. **Tests** — Add tests for new service/util logic.
+10. **Named exports** — No default exports except Next.js `page`/`layout`/`route`.
+11. **Mobile-first UX** — Phone layout first; one job above the fold; plain church language; primary controls ≥44px (`ebc-action-primary` / `ebc-choice`). Admin/setup never ahead of the user’s job. See `docs/engineering/standards/ux.md`.
+
+## When unsure
+
+Check `docs/engineering/standards/` before inventing patterns. Match existing module conventions.

@@ -1,0 +1,1 @@
+export { MinistryTabNav } from './MinistryTabNav';

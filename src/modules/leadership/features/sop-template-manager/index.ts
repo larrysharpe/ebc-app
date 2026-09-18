@@ -1,0 +1,1 @@
+export { SopTemplateManager } from './SopTemplateManager';

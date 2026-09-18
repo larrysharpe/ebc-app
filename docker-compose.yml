@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ebc-app-postgres
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: ebc
+      POSTGRES_PASSWORD: ebc_dev
+      POSTGRES_DB: ebc_dev
+    volumes:
+      - ebc_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ebc -d ebc_dev']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ebc_postgres_data:

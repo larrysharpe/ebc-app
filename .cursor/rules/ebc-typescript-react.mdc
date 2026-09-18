@@ -1,0 +1,37 @@
+---
+description: TypeScript and React coding patterns for EBC APP
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# EBC APP — TypeScript & React
+
+Full doc: `docs/engineering/standards/coding.md`
+
+## TypeScript
+
+- `strict: true`; no `any` at boundaries
+- String unions / `as const` — not TS enums
+- `import type` for type-only imports
+- Explicit return types on exported functions
+
+## React / Next.js
+
+- Server Components default; `'use client'` only when needed
+- Props types in `*.types.ts` when non-trivial
+- Extract hooks to `use-*.ts` in the same feature folder
+- Handle loading | empty | error | success for data views
+
+## Imports order
+
+1. External packages
+2. `@/` aliases (barrels only for cross-folder)
+3. Relative (within feature)
+4. `import type`
+
+## Do not
+
+- Put business logic in `page.tsx` or presentational components
+- Use `dangerouslySetInnerHTML` without security review
+- `console.log` member or giving data
+- Default-export components (Next.js pages excepted)

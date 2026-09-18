@@ -1,0 +1,1 @@
+export { ChurchGivingPanel } from './ChurchGivingPanel';
